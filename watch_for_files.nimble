@@ -1,8 +1,8 @@
 # Package
 
-version       = "0.0.1"
+version       = "0.0.3"
 author        = "hamidb80"
-description   = "cross-platform file watcher with awesome features"
+description   = "cross-platform file watcher with database"
 license       = "MIT"
 srcDir        = "src"
 

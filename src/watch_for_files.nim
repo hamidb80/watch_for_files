@@ -4,14 +4,14 @@ import os, times,
 type
   FilesLastEdit = Table[string, Time] # { path: lastEdit }
 
-  ChangeFeedVariants = enum
+  ChangeFeedVariants* = enum
     CFAdd, CFEdit, CFDelete
 
-  ChangeFeed = object
+  ChangeFeed* = object
     kind: ChangeFeedVariants
     path: string
 
-  Tunnel = Channel[ChangeFeed]
+  Tunnel* = Channel[ChangeFeed]
 
 # ------------------------------------------
 
@@ -22,11 +22,11 @@ proc listFilesImpl(storage: var FilesLastEdit, folder: string) =
     else:
       storage[finfo.path] = (getFileInfo finfo.path).lastWriteTime
 
-proc listFiles(folder: string): FilesLastEdit {.inline.} =
+proc listFiles*(folder: string): FilesLastEdit {.inline.} =
   result.listFilesImpl(folder)
 
 
-proc run(
+proc run*(
   folder: string, tunnel: var Tunnel,
   timeout = 500, dbPath = "", save = false
 ) {.thread.} =
@@ -63,6 +63,8 @@ proc run(
 # --------------------------------------
 
 when isMainModule:
+  # add src folders, ignore folders
+
   if paramCount() == 0:
     quit "no inp file"
 
