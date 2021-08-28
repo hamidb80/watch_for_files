@@ -2,7 +2,7 @@ import os, times,
   tables, json
 
 type
-  FilesLastEdit = Table[string, Time] # { path: lastEdit }
+  FilesLastEdit* = Table[string, Time] # { path: lastEdit }
 
   ChangeFeedVariants* = enum
     CFAdd, CFEdit, CFDelete
@@ -15,15 +15,15 @@ type
 
 # ------------------------------------------
 
-proc listFilesImpl(storage: var FilesLastEdit, folder: string) =
+proc initFilesEditsImpl(storage: var FilesLastEdit, folder: string) =
   for finfo in walkDir folder:
     if finfo.kind == pcDir:
-      listFilesImpl(storage, finfo.path)
+      initFilesEditsImpl(storage, finfo.path)
     else:
       storage[finfo.path] = (getFileInfo finfo.path).lastWriteTime
 
-proc listFiles*(folder: string): FilesLastEdit {.inline.} =
-  result.listFilesImpl(folder)
+proc initFilesEdits*(folder: string): FilesLastEdit {.inline.} =
+  result.initFilesEditsImpl(folder)
 
 
 proc run*(
@@ -36,22 +36,19 @@ proc run*(
     else: FilesLastEdit()
 
   while true:
-    let newFilesLastEdit = listFiles folder
+    let newFilesLastEdit = initFilesEdits folder
 
     for path, time in newFilesLastEdit:
       if path in lastFilesInfo:
         if lastFilesInfo[path] != newFilesLastEdit[path]:
           tunnel.send ChangeFeed(path: path, kind: CFEdit)
-          debugEcho path, " >> edited"
 
       else:
         tunnel.send ChangeFeed(path: path, kind: CFadd)
-        debugEcho path, " >> created"
 
     for path, _ in lastFilesInfo:
       if path notin newFilesLastEdit:
         tunnel.send ChangeFeed(path: path, kind: CFdelete)
-        debugEcho path, " >> deleted"
 
     lastFilesInfo = newFilesLastEdit
 
