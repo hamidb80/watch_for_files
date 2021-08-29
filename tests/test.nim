@@ -1,7 +1,8 @@
 import unittest, os, threadpool, times,
   tables, sequtils, sets
-
 import watch_for_files
+
+# -------------------------------------------
 
 func keysInTable[K, V](keys: openArray[string], t: Table[K, V]): bool =
   keys.allIt it in t
@@ -20,84 +21,60 @@ template repeatFor(timeout, delay: int, body: untyped): untyped =
 #     "temp\\depth\\f3.txt",
 #   ].keysInTable initFilesEdits "./temp"
 
+# -------------------------------------------
 
-# suite "change feed":
-#   var
-#     ch: ref Channel[ChangeFeed]
-#     active: ref bool
-    
-#   new active
-#   new ch
-#   active[] = true
+suite "change feed":
+  var
+    ch: Channel[ChangeFeed]
+    active = true
+  ch.open
+  spawn run("./temp", unsafeAddr ch, unsafeAddr active, 100)
 
-#   ch[].open
+  template getNewChanges: untyped {.dirty.} =
+    var changes: seq[ChangeFeed]
+    repeatFor 1000, 10:
+      let (available, feed) = ch.tryRecv
+      if available:
+        changes.add feed
 
-#   var t: Thread[WorkerArgs]
-#   createThread(t, run, WorkerArgs(
-#     folder:"./temp", 
-#     tunnel: ch, 
-#     active: active,
-#     timeout: 500,
-#     dbPath: "",
-#     save: false
-#   ))
+  test "file create":
+    writefile "./temp/f1.txt", ""
+    createDir "./temp/depth"
+    writefile "./temp/depth/f2.txt", ""
 
-#   test "file create":
-#     writefile "./temp/f1.txt", ""
-#     createDir "./temp/depth"
-#     writefile "./temp/depth/f2.txt", ""
+    getNewChanges
+    check changes.toHashSet == [
+      ("temp\\f1.txt", CFcreate),
+      ("temp\\depth\\f2.txt", CFcreate)
+    ].toHashSet
 
-#     var changes: seq[ChangeFeed]
+  test "file rename":
+    moveFile "./temp/f1.txt", "./temp/f1.moved"
 
-#     repeatFor 1000, 150:
-#       let (available, feed) = ch[].tryRecv
-#       if available:
-#         changes.add feed
+    getNewChanges
+    check changes.toHashSet == [
+      ("temp\\f1.txt", CFdelete),
+      ("temp\\f1.moved", CFcreate)
+    ].toHashSet
 
-#     check (changes.mapIt it.path).toHashSet == [
-#       ".\\temp\\f1.txt",
-#       ".\\temp\\depth\\f2.txt",
-#     ].toHashSet
-#     echo changes
+  test "file edit":
+    writefile "./temp/depth/f2.txt", "hey"
 
-#   active[] = false
-#   ch[].close
-#   sync()
+    getNewChanges
+    check changes.toHashSet == [("temp\\depth\\f2.txt", CFedit)].toHashSet
+
+  test "file delete":
+    removeFile "./temp/f1.moved"
+    removeFile "./temp/depth/f2.txt"
+    removeDir "./temp/depth"
+
+    getNewChanges
+    check changes.toHashSet == [
+      ("temp\\f1.moved", CFDelete),
+      ("temp\\depth\\f2.txt", CFDelete)
+    ].toHashSet
 
 
-var
-  ch: ref Channel[ChangeFeed]
-  active: ref bool
-  
-new active
-new ch
-active[] = true
-
-ch[].open
-
-var t: Thread[WorkerArgs]
-createThread(t, run, WorkerArgs(
-  folder:"./temp", 
-  tunnel: ch, 
-  active: active,
-  timeout: 500,
-  dbPath: "",
-  save: false
-))
-
-writefile "./temp/f1.txt", ""
-createDir "./temp/depth"
-writefile "./temp/depth/f2.txt", ""
-
-var changes: seq[ChangeFeed]
-
-repeatFor 1000, 150:
-  let (available, feed) = ch[].tryRecv
-  if available:
-    changes.add feed
-
-echo (changes.mapIt it.path)
-
-active[] = false
-ch[].close
-sync()
+  active = false
+  ch.close
+  sync()

@@ -5,11 +5,11 @@ type
   FilesLastEdit* = Table[string, Time] # { path: lastEdit }
 
   ChangeFeedVariants* = enum
-    CFAdd, CFEdit, CFDelete
+    CFCreate, CFEdit, CFDelete
 
-  ChangeFeed* = object
-    kind*: ChangeFeedVariants
-    path*: string
+  ChangeFeed* = tuple
+    path: string
+    kind: ChangeFeedVariants
 
 # ------------------------------------------
 
@@ -23,47 +23,39 @@ proc initFilesEditsImpl(storage: var FilesLastEdit, folder: string) =
 proc initFilesEdits*(folder: string): FilesLastEdit {.inline.} =
   result.initFilesEditsImpl(folder)
 
-type WorkerArgs* = object
-  folder*: string 
-  tunnel*: ref Channel[ChangeFeed] 
-  active*: ref bool
-  timeout*: int 
-  dbPath*: string
-  save*: bool
-
-proc run*(args: WorkerArgs)=
-
+proc run*(
+  folder: string, tunnel: ptr Channel[ChangeFeed], active: ptr bool,
+  timeInterval: int, dbPath: string = "", save: bool = false
+) =
   var lastFilesInfo =
-    if fileExists args.dbpath: parseJson(readfile args.dbPath).to FilesLastEdit
+    if fileExists dbpath: parseJson(readfile dbPath).to FilesLastEdit
     else: FilesLastEdit()
 
   while true:
-    let newFilesLastEdit = initFilesEdits args.folder
+    let newFilesLastEdit = initFilesEdits folder
     var anyUpdate = false
 
     template update(feed): untyped =
       anyUpdate = true
-      echo "yo"
-      args.tunnel[].send feed
-      echo "me"
+      tunnel[].send feed
 
-    for path, _ in lastFilesInfo:
-      if path notin newFilesLastEdit:
-        update ChangeFeed(path: path, kind: CFdelete)
-
-    for path, time in newFilesLastEdit:
-      if path in lastFilesInfo:
-        if lastFilesInfo[path] != newFilesLastEdit[path]:
-          update ChangeFeed(path: path, kind: CFEdit)
+    for path, time in lastFilesInfo:
+      if path in newFilesLastEdit:
+        if time != newFilesLastEdit[path]:
+          update (path, CFEdit)
       else:
-        update ChangeFeed(path: path, kind: CFadd)
+        update (path, CFdelete)
+
+    for path, _ in newFilesLastEdit:
+      if path notin lastFilesInfo:
+        update (path, CFCreate)
 
     lastFilesInfo = newFilesLastEdit
 
-    if args.save and anyUpdate:
-      writefile args.dbpath, $ %lastfilesInfo
+    if save and anyUpdate:
+      writefile dbpath, $ %lastfilesInfo
 
-    if not args.active[]:
+    if not active[]:
       break
 
-    sleep args.timeout
+    sleep timeInterval
