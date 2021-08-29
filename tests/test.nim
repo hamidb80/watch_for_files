@@ -1,11 +1,6 @@
-import unittest, os, threadpool, times,
-  tables, sequtils, sets
+import unittest, os, threadpool, times, sets
 import watch_for_files
 
-# -------------------------------------------
-
-func keysInTable[K, V](keys: openArray[string], t: Table[K, V]): bool =
-  keys.allIt it in t
 
 template repeatFor(timeout, delay: int, body: untyped): untyped =
   let startTime = getTime()
@@ -13,13 +8,6 @@ template repeatFor(timeout, delay: int, body: untyped): untyped =
   while (getTime() - startTime).inMilliseconds < timeout:
     body
     sleep delay
-
-# test "list files":
-#   check [
-#     "temp\\f1.txt",
-#     "temp\\f2.txt",
-#     "temp\\depth\\f3.txt",
-#   ].keysInTable initFilesEdits "./temp"
 
 # -------------------------------------------
 
