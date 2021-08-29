@@ -3,8 +3,7 @@ this is a cross-platform file watcher with database
 it means you can save into DB the lastest files modification times
 this special feature allows you to avoid unnecessary operations
 
-# Usage
-
+# How To use
 let's take a look at the defination of the main proc `goWatch`
 
 ```nim
@@ -26,6 +25,18 @@ proc goWatch*(
 - `save`: a boolean that indicates whether the files modifications state should be saved after every check or not
 
 **Note**: if you specify `dbPath` and the file exists there, the saved state is going to be restored before the first check
+
+----------------
+
+the changes that will be sent to the channel are `tuple`s of path & change_kind
+```nim
+  ChangeFeedVariants* = enum
+    CFCreate, CFEdit, CFDelete
+
+  ChangeFeed* = tuple
+    path: string
+    kind: ChangeFeedVariants
+```
 
 ----------
 you can find the example of usage in `tests/test.nim`
