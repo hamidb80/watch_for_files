@@ -8,10 +8,8 @@ type
     CFAdd, CFEdit, CFDelete
 
   ChangeFeed* = object
-    kind: ChangeFeedVariants
-    path: string
-
-  Tunnel* = Channel[ChangeFeed]
+    kind*: ChangeFeedVariants
+    path*: string
 
 # ------------------------------------------
 
@@ -25,47 +23,47 @@ proc initFilesEditsImpl(storage: var FilesLastEdit, folder: string) =
 proc initFilesEdits*(folder: string): FilesLastEdit {.inline.} =
   result.initFilesEditsImpl(folder)
 
+type WorkerArgs* = object
+  folder*: string 
+  tunnel*: ref Channel[ChangeFeed] 
+  active*: ref bool
+  timeout*: int 
+  dbPath*: string
+  save*: bool
 
-proc run*(
-  folder: string, tunnel: var Tunnel,
-  timeout = 500, dbPath = "", save = false
-) {.thread.} =
+proc run*(args: WorkerArgs)=
 
   var lastFilesInfo =
-    if fileExists dbpath: parseJson(readfile dbPath).to FilesLastEdit
+    if fileExists args.dbpath: parseJson(readfile args.dbPath).to FilesLastEdit
     else: FilesLastEdit()
 
   while true:
-    let newFilesLastEdit = initFilesEdits folder
+    let newFilesLastEdit = initFilesEdits args.folder
+    var anyUpdate = false
+
+    template update(feed): untyped =
+      anyUpdate = true
+      echo "yo"
+      args.tunnel[].send feed
+      echo "me"
+
+    for path, _ in lastFilesInfo:
+      if path notin newFilesLastEdit:
+        update ChangeFeed(path: path, kind: CFdelete)
 
     for path, time in newFilesLastEdit:
       if path in lastFilesInfo:
         if lastFilesInfo[path] != newFilesLastEdit[path]:
-          tunnel.send ChangeFeed(path: path, kind: CFEdit)
-
+          update ChangeFeed(path: path, kind: CFEdit)
       else:
-        tunnel.send ChangeFeed(path: path, kind: CFadd)
-
-    for path, _ in lastFilesInfo:
-      if path notin newFilesLastEdit:
-        tunnel.send ChangeFeed(path: path, kind: CFdelete)
+        update ChangeFeed(path: path, kind: CFadd)
 
     lastFilesInfo = newFilesLastEdit
 
-    if save:
-      writefile dbpath, $ %lastfilesInfo
+    if args.save and anyUpdate:
+      writefile args.dbpath, $ %lastfilesInfo
 
-    sleep timeout
+    if not args.active[]:
+      break
 
-# --------------------------------------
-
-when isMainModule:
-  # add src folders, ignore folders
-
-  if paramCount() == 0:
-    quit "no inp file"
-
-  var ch: Tunnel
-  ch.open
-
-  run paramStr(1), ch
+    sleep args.timeout
