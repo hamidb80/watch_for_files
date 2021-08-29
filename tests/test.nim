@@ -16,7 +16,7 @@ suite "change feed":
     ch: Channel[ChangeFeed]
     active = true
   ch.open
-  spawn run("./temp", unsafeAddr ch, unsafeAddr active, 100)
+  spawn goWatch("./temp", unsafeAddr ch, unsafeAddr active, 100)
 
   template getNewChanges: untyped {.dirty.} =
     var changes: seq[ChangeFeed]

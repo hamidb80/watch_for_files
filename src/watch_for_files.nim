@@ -23,7 +23,7 @@ proc initFilesEditsImpl(storage: var FilesLastEdit, folder: string) =
 proc initFilesEdits*(folder: string): FilesLastEdit {.inline.} =
   result.initFilesEditsImpl(folder)
 
-proc run*(
+proc goWatch*(
   folder: string, tunnel: ptr Channel[ChangeFeed], active: ptr bool,
   timeInterval: int, dbPath: string = "", save: bool = false
 ) =
