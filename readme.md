@@ -18,7 +18,7 @@ proc goWatch*(
 )
 ```
 
-- `folder`: path to folder you wanna watch files changes
+- `folder`: path to folder you wanna watch files changes, the program will watch file changes in any depths in that folder
 - `tunnel`: a ptr to channel: changes will be sent to this channel
 - `active`: a ptr to a bool: determines whether the worker [the file watcher] should continue to work or not
 - `timeInterval`: the delay between every check

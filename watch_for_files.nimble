@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.0.5"
+version       = "0.0.6"
 author        = "hamidb80"
 description   = "cross-platform file watcher with database"
 license       = "MIT"
